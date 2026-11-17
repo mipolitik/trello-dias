@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://p.trello.com/power-up.min.css">
+<script src="https://p.trello.com/power-up.min.js"></script>
+<style>textarea{width:100%;height:110px;font:12px monospace}p{margin:6px 0}</style>
+</head>
+<body>
+<p>Fechas de llegada de las tarjetas que ya estaban en el tablero. Se pega una sola vez.</p>
+<textarea id="s" placeholder='{"enlace":[día de llegada, día de entrada a la lista]}'></textarea>
+<p><button id="g" class="mod-primary">Guardar</button> <span id="m"></span></p>
+<script>
+var t = window.TrelloPowerUp.iframe(), s = document.getElementById('s'), m = document.getElementById('m');
+t.get('board', 'shared', 'seed').then(function (v) { if (v) s.value = JSON.stringify(v); });
+document.getElementById('g').onclick = function () {
+  var v;
+  try { v = s.value.trim() ? JSON.parse(s.value) : {}; } catch (e) { m.textContent = 'El texto no es válido.'; return; }
+  t.set('board', 'shared', 'seed', v).then(function () { m.textContent = 'Guardado.'; setTimeout(function () { t.closePopup(); }, 700); },
+    function () { m.textContent = 'No se pudo guardar.'; });
+};
+</script>
+</body>
+</html>
