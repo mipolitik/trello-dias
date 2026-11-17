@@ -66,7 +66,7 @@
         } else {
           b.push({ title: 'En Programación', text: M.txt(r.p), color: M.color(r.p, r.c) });
           b.push({ title: 'En esta lista', text: M.txt(r.l) });
-          if (M.RE.prod.test(r.ln)) b.push({ title: 'Estado', text: 'Nos toca probar', color: 'blue' });
+          if (M.RE.prod.test(r.ln)) b.push({ title: 'Nos toca probar', text: 'Marcar comprobado', color: 'green', callback: function (t2) { return comprobar(t2, r); } });
           if (r.sm >= r.c.sm) b.push({ title: 'Sin movimiento', text: M.txt(r.sm), color: 'orange' });
         }
         if (r.v > 0) b.push({ title: 'Volvió', text: r.v === 1 ? '1 vez' : r.v + ' veces', color: 'red' });
