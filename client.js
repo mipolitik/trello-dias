@@ -88,7 +88,7 @@
         icon: { dark: BASE + 'icon.svg', light: BASE + 'icon.svg' },
         text: 'Antigüedad',
         callback: function (t) {
-          return t.modal({ url: './antiguedad.html?v=2', title: 'Antigüedad · Programación', height: 640 });
+          return t.modal({ url: './antiguedad.html?v=4', title: 'Antigüedad · Programación', height: 640 });
         }
       }];
     },

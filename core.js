@@ -54,9 +54,7 @@ var MP = (function MPcore() {
     if (r.sinDato) return [];
     if (r.fin) return r.t != null ? [{ text: 'Resuelta en ' + txt(r.t), color: 'green' }] : [];
     var b = [{ text: txt(r.p), color: color(r.p, c) }];
-    if (RE.prod.test(ln)) b.push({ text: 'Nos toca probar', color: 'blue' });
     if (RE.curso.test(ln) && r.l < r.p) b.push({ text: txt(r.l) + ' en esta lista', color: 'sky' });
-    if (r.sm >= c.sm) b.push({ text: 'Sin movimiento ' + txt(r.sm), color: 'orange' });
     if (r.v > 0) b.push({ text: r.v > 1 ? 'Volvió ' + r.v + ' veces' : 'Volvió', color: 'red' });
     return b;
   }
