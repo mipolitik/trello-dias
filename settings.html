@@ -2,23 +2,25 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
 <script src="https://p.trellocdn.com/power-up.min.js"></script>
-<style>textarea{width:100%;height:110px;font:12px monospace}p{margin:6px 0}</style>
+<script src="./core.js?v=2"></script>
+<style>body{font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#172b4d;margin:0;padding:10px 12px}label{display:flex;justify-content:space-between;align-items:center;margin:8px 0}input{width:64px;font:inherit;padding:4px 6px;border:1px solid #c1c7d0;border-radius:6px;text-align:right}button{font:inherit;padding:6px 14px;border:0;border-radius:6px;background:#0c66e4;color:#fff}#m{margin-left:8px;color:#5e6c84}</style>
 </head>
 <body>
-<p>Fechas de llegada de las tarjetas que ya estaban en el tablero. Se pega una sola vez.</p>
-<textarea id="s" placeholder='{"enlace":[día de llegada, día de entrada a la lista]}'></textarea>
-<p><button id="g" class="mod-primary">Guardar</button> <span id="m"></span></p>
-<script>
-var t = window.TrelloPowerUp.iframe(), s = document.getElementById('s'), m = document.getElementById('m');
-t.get('board', 'shared', 'seed').then(function (v) { if (v) s.value = JSON.stringify(v); });
-document.getElementById('g').onclick = function () {
-  var v;
-  try { v = s.value.trim() ? JSON.parse(s.value) : {}; } catch (e) { m.textContent = 'El texto no es válido.'; return; }
-  t.set('board', 'shared', 'seed', v).then(function () { m.textContent = 'Guardado.'; setTimeout(function () { t.closePopup(); }, 700); },
-    function () { m.textContent = 'No se pudo guardar.'; });
-};
-</script>
+<label>Amarillo desde (días en Programación) <input id="am" type="number" min="1"></label>
+<label>Rojo desde (días en Programación) <input id="ro" type="number" min="2"></label>
+<label>«Sin movimiento» desde (días sin actividad) <input id="sm" type="number" min="1"></label>
+<p><button id="g">Guardar</button><span id="m"></span></p>
+<script>(function ajustes() {
+  var t = window.TrelloPowerUp.iframe(), M = window.MP, m = document.getElementById('m');
+  var ids = ['am', 'ro', 'sm'];
+  t.get('board', 'shared', 'cfg').then(function (c) { c = M.cfg(c); ids.forEach(function (k) { document.getElementById(k).value = c[k]; }); });
+  document.getElementById('g').onclick = function () {
+    var c = {}; ids.forEach(function (k) { c[k] = parseInt(document.getElementById(k).value, 10); });
+    if (!(c.am > 0 && c.ro > c.am && c.sm > 0)) { m.textContent = 'Revise los números: el rojo debe ser mayor que el amarillo.'; return; }
+    t.set('board', 'shared', 'cfg', c).then(function () { m.textContent = 'Guardado.'; setTimeout(function () { t.closePopup(); }, 700); },
+      function () { m.textContent = 'No se pudo guardar.'; });
+  };
+})();</script>
 </body>
 </html>

@@ -1,69 +1,70 @@
-/* Días en Programación · complemento privado de Trello.
-   Muestra en cada tarjeta cuántos días lleva en el tablero y en su lista.
-   No escribe en nombres, descripciones ni historial: solo guarda, dentro de Trello,
-   la fecha de llegada de cada tarjeta. No envía datos a ningún servidor. */
-(function () {
-  var RD = 4 * 3600 * 1000, DIA = 86400000;            // República Dominicana, UTC-4
-  function dia(ms) { return Math.floor((ms - RD) / DIA); }
-  function hoy() { return dia(Date.now()); }
-  function creada(id) { return dia(parseInt(String(id).substring(0, 8), 16) * 1000); }
-  function txt(n) { return n + (n === 1 ? ' día' : ' días'); }
-  function color(n) { return n >= 14 ? 'red' : (n >= 7 ? 'yellow' : 'light-gray'); }
-
-  function lista(card, list) {
-    if (card.dueComplete) return true;
-    if (list && /^completad/i.test(list.name || '')) return true;
-    return (card.labels || []).some(function (l) { return /^listo$/i.test(l.name || ''); });
-  }
-
-  // Devuelve {p: días en el tablero, l: días en la lista} o null si la tarjeta ya está lista.
-  function cuenta(t) {
+/* Días en Programación · complemento privado de Trello. No envía datos a ningún servidor. */
+(function clientMain() {
+  var M = window.MP, V = '?v=2', BASE = 'https://mipolitik.github.io/trello-dias/';
+  function leer(t) {
     return Promise.all([
-      t.card('id', 'shortLink', 'idList', 'labels', 'dueComplete'),
+      t.card('id', 'shortLink', 'idList', 'labels', 'dueComplete', 'dateLastActivity'),
       t.list('name'),
       t.get('board', 'shared', 'seed'),
-      t.get('card', 'shared', 'd')
+      t.get('card', 'shared', 'd'),
+      t.get('board', 'shared', 'cfg')
     ]).then(function (r) {
-      var card = r[0], list = r[1], seed = r[2] || {}, d = r[3];
-      if (lista(card, list)) return null;
-      var h = hoy(), cambio = false;
-      if (!d) {
-        var s = seed[card.shortLink];
-        if (s) d = { a: s[0], i: s[1], l: card.idList };
-        else {
-          var c = creada(card.id);
-          var a = (h - c) <= 1 ? c : h;                 // creada antes en otro tablero: llega hoy
-          d = { a: a, i: a, l: card.idList };
-        }
-        cambio = true;
-      } else if (d.l !== card.idList) {                 // cambió de lista
-        d = { a: d.a, i: h, l: card.idList };
-        cambio = true;
-      }
-      var res = { p: Math.max(0, h - d.a), l: Math.max(0, h - d.i) };
-      if (!cambio) return res;
-      return t.set('card', 'shared', 'd', d).then(function () { return res; }, function () { return res; });
+      var ln = (r[1] && r[1].name) || '';
+      var res = M.calc(r[0], ln, r[2] || {}, r[3] || null, M.hoy());
+      res.ln = ln; res.c = M.cfg(r[4]);
+      if (!res.cambio) return res;
+      return t.set('card', 'shared', 'd', res.d).then(function () { return res; }, function () { return res; });
     });
   }
-
   window.TrelloPowerUp.initialize({
     'card-badges': function (t) {
-      return cuenta(t).then(function (r) {
-        if (!r) return [];
-        return [{ text: txt(r.p), color: color(r.p), refresh: 3600 }];
-      });
+      return leer(t).then(function (r) { return M.insignias(r, r.ln, r.c); });
     },
     'card-detail-badges': function (t) {
-      return cuenta(t).then(function (r) {
-        if (!r) return [];
-        return [
-          { title: 'En Programación', text: txt(r.p), color: color(r.p) },
-          { title: 'En esta lista', text: txt(r.l) }
-        ];
+      return leer(t).then(function (r) {
+        if (r.sinDato) return [];
+        var b = [];
+        if (r.fin) {
+          if (r.t != null) b.push({ title: 'Resuelta en', text: M.txt(r.t), color: 'green' });
+          if (r.ok) b.push({ title: 'Comprobado', text: M.fecha(r.d.ok), color: 'green' });
+        } else {
+          b.push({ title: 'En Programación', text: M.txt(r.p), color: M.color(r.p, r.c) });
+          b.push({ title: 'En esta lista', text: M.txt(r.l) });
+          if (M.RE.prod.test(r.ln)) b.push({ title: 'Estado', text: 'Nos toca probar', color: 'blue' });
+          if (r.sm >= r.c.sm) b.push({ title: 'Sin movimiento', text: M.txt(r.sm), color: 'orange' });
+        }
+        if (r.v > 0) b.push({ title: 'Volvió', text: r.v === 1 ? '1 vez' : r.v + ' veces', color: 'red' });
+        return b;
       });
     },
+    'card-buttons': function (t) {
+      return leer(t).then(function (r) {
+        if (r.sinDato || !M.RE.prod.test(r.ln)) return [];
+        return [{
+          icon: BASE + 'icon.svg',
+          text: r.ok ? 'Quitar «Comprobado»' : 'Comprobado',
+          callback: function (t2) {
+            return t2.get('card', 'shared', 'd').then(function (d) {
+              d = d || r.d; var h = M.hoy();
+              if (d.ok != null) { delete d.ok; delete d.f; delete d.t; }
+              else { d.ok = h; if (d.f == null) { d.f = h; d.t = Math.max(0, h - d.a); } }
+              return t2.set('card', 'shared', 'd', d);
+            });
+          }
+        }];
+      });
+    },
+    'board-buttons': function () {
+      return [{
+        icon: { dark: BASE + 'icon.svg', light: BASE + 'icon.svg' },
+        text: 'Antigüedad',
+        callback: function (t) {
+          return t.modal({ url: './antiguedad.html' + V, title: 'Antigüedad · Programación', height: 640 });
+        }
+      }];
+    },
     'show-settings': function (t) {
-      return t.popup({ title: 'Días en Programación', url: './settings.html', height: 260 });
+      return t.popup({ title: 'Días en Programación', url: './settings.html' + V, height: 250 });
     }
   });
 })();
