@@ -16,12 +16,14 @@ var MP = (function MPcore() {
   }
   function color(n, c) { return n >= c.ro ? 'red' : (n >= c.am ? 'yellow' : 'light-gray'); }
   function tiene(card, re) { return (card.labels || []).some(function (l) { return re.test(l.name || ''); }); }
-  var RE = { comp: /^completad/i, prod: /^en producci[oó]n/i, curso: /^(en progreso|testing|en producci[oó]n)/i };
+  var RE = { comp: /^completad/i, prod: /^en producci[oó]n/i, curso: /^(en progreso|testing|en producci[oó]n)/i, prog: /^en progreso/i, prueba: /^(testing|en producci[oó]n)/i };
+  var VOLVIERON = { pab7zEYn: 1, hBtI9zr8: 1 };            // devueltas el 18 nov, antes de guardar la lista anterior
   function cerrada(card, ln, d) {
     if (card.dueComplete || RE.comp.test(ln || '') || tiene(card, /^listo$/i)) return true;
     return !!(d && d.ok != null && RE.prod.test(ln || ''));
   }
-  /* d = {a: día de llegada, i: día de entrada a la lista, l: lista, f: día de cierre, t: días que tardó, v: veces que volvió, ok: día comprobado} */
+  /* d = {a: día de llegada, i: día de entrada a la lista, l: lista, ln: nombre de la lista, ip: día en que entró a En progreso en este ciclo,
+         f: día de cierre, t: días que tardó, v: veces que volvió, ok: día comprobado}. Los días solo se reinician al reabrir desde Completado. */
   function calc(card, ln, seed, d, h) {
     var cambio = false, nd = d ? JSON.parse(JSON.stringify(d)) : null;
     var fin = cerrada(card, ln, nd);
@@ -34,19 +36,25 @@ var MP = (function MPcore() {
     }
     if (fin) {
       if (nd.f == null) { nd.f = h; nd.t = Math.max(0, h - nd.a); cambio = true; }
-      if (nd.l !== card.idList) { nd.l = card.idList; cambio = true; }
+      if (nd.l !== card.idList || nd.ln !== ln) { nd.l = card.idList; nd.ln = ln; cambio = true; }
     } else if (nd.f != null) {
       nd.v = (nd.v || 0) + 1; delete nd.f; delete nd.t; delete nd.ok;
-      nd.a = h; nd.i = h; nd.l = card.idList; cambio = true;
+      if (RE.comp.test(nd.ln || '')) { nd.a = h; delete nd.ip; }
+      nd.i = h; nd.l = card.idList; nd.ln = ln; cambio = true;
     } else {
       if (nd.ok != null) { delete nd.ok; cambio = true; }
-      if (nd.l !== card.idList) { nd.i = h; nd.l = card.idList; cambio = true; }
+      if (nd.l !== card.idList) {
+        if (RE.prog.test(ln) && RE.prueba.test(nd.ln || '')) nd.v = (nd.v || 0) + 1;
+        nd.i = h; nd.l = card.idList; nd.ln = ln; cambio = true;
+      } else if (nd.ln !== ln) { nd.ln = ln; cambio = true; }
     }
+    if (nd.v == null && VOLVIERON[card.shortLink]) { nd.v = 1; cambio = true; }
+    if (!fin && RE.prog.test(ln) && nd.ip == null) { nd.ip = (nd.i >= h ? nd.a : nd.i); cambio = true; }
     var v = nd.v || 0; if (!v && tiene(card, /^volvi/i)) v = 1;
     var act = card.dateLastActivity ? dia(new Date(card.dateLastActivity).getTime()) : null;
     return {
       d: nd, cambio: cambio, fin: fin, sinDato: false,
-      p: Math.max(0, h - nd.a), l: Math.max(0, h - nd.i), t: nd.t, v: v, ok: nd.ok != null,
+      p: Math.max(0, h - nd.a), l: Math.max(0, h - nd.i), g: nd.ip == null ? null : Math.max(0, h - nd.ip), t: nd.t, v: v, ok: nd.ok != null,
       sm: act == null ? 0 : Math.max(0, h - act)
     };
   }
@@ -54,7 +62,8 @@ var MP = (function MPcore() {
     if (r.sinDato) return [];
     if (r.fin) return r.t != null ? [{ text: 'Resuelta en ' + txt(r.t), color: 'green' }] : [];
     var b = [{ text: txt(r.p), color: color(r.p, c) }];
-    if (RE.curso.test(ln) && r.l < r.p) b.push({ text: txt(r.l) + ' en esta lista', color: 'sky' });
+    if (RE.prog.test(ln) && r.g != null) { if (r.g < r.p) b.push({ text: txt(r.g) + ' en progreso', color: 'sky' }); }
+    else if (RE.curso.test(ln) && r.l < r.p) b.push({ text: txt(r.l) + ' en esta lista', color: 'sky' });
     if (r.v > 0) b.push({ text: r.v > 1 ? 'Volvió ' + r.v + ' veces' : 'Volvió', color: 'red' });
     return b;
   }
